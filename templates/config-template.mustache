@@ -1,0 +1,16 @@
+{
+    "secret": "{{secret}}",
+    "uri": "{{{uri}}}",
+    "socketPath": "/run/commander.sk",
+    "port": {{port}},
+    "branchReactionMap": {
+        {{#repositories}}
+        {{{branchLine}}}
+        {{/repositories}}
+    },
+    "commandMap": {
+        {{#repositories}}
+        {{{configLine}}}
+        {{/repositories}}
+    }
+}

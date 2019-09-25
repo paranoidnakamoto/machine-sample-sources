@@ -1,0 +1,153 @@
+# sample-source
+
+Sample repository holding some basic usable source for a machine thingy
+
+## The machine Thingy
+
+Basicly the code of the machine thingy becomes bundeled into a `installer.js`.
+This way we may hash it to check if something has become corrupted. -> Not yet implemented.
+
+How that exact `installer.js` works is completely arbitrary and to be defined in the sources of a machine thingy -> here.
+
+However the sample sources are pretty close how I use it for my purposes.
+
+There the `installer.js` will be called without argument for a complete installation. Another option is to update an already existing installer by adding an argument `update` to the call.
+
+```sh
+# probably be root here
+node installer.js
+node installer.js update
+```
+
+## This specific source
+
+The most important component is the configuration
+
+- base-config.js
+- machine-config.js
+
+They will be bundeled, integrated and used for how to install the machine. They have all thingies defined which should be installed on the machine.
+
+The purpose of this installer is not to set up any other basic software other than thingies which we want to deploy on that machine.
+
+So we have som requirements:
+ - have linux-style user and permission handling
+ - better be Linux :D -> tested on Arch Linux and Ubuntu 18.04
+ - nodejs
+ - perl
+ - nginx
+ - nginx following symlinks -> accessing websites
+ - nginx including all files in `/etc/nginx/servers`
+ - systemd installed and running as PID 1
+
+All symlinks to access the websites will be in `/srv/http`.
+
+### Configuration
+
+#### base-config.js
+
+Every machine thingy carries at least itself plus a service thingy being the `webhook-handler`. As we do want to update every of our thingies here when a specific branch becomes updated.
+
+So this configurations are in the in the `base-config.js`.
+```javascript
+var config = {};
+var webhookPort = 5555
+
+// identifying name
+config.name = "sample-machine"
+// webhook relevant config
+config.ipAddress = "111.111.111.111"
+config.uri = "/webhook"
+config.webhookSecret = "sluttysecret"
+config.webhookPort = webhookPort
+//most basic thingies
+config.thingies = [
+    {
+        homeUser: "root",
+        repository: "machine-thingy-output",
+        branch: "release",
+        newProp: false,
+        type:"installer",
+        updateCode: [
+            "cd /root/sample-machine-output; git pull origin release; node installer.js update;"
+        ]
+    },
+    {
+        homeUser: "webhook-handler",
+        repository: "webhook-handler-deploy",
+        branch: "release",
+        type:"service",
+        socket: true,
+        oneshot: true,
+        outsidePort: webhookPort,
+        updateCode: [
+            "sudo -u webhook-handler -H sh -c 'cd /home/webhook-handler/webhook-handler-deploy; git pull origin release'"
+        ]
+    }
+]
+module.exports = config;
+```
+
+Importantly to adjust for every machine thingy is the IP address of the server and the identifying name.
+
+Also the installer thingy should be itself. As it will be self-updating when you push a new version into the `release` branch.
+
+The `homeUser` is very much the identifying name of the thingy on the machine for now.
+
+#### machine-config.js
+
+It is recoomended to hold the config for every regular thingy to be deployed in this file. Actually this file is directly required and just furtherly requires the `base-config.js`.
+
+```javascript
+var baseConfig = require("./base-config")
+
+var allMachineThingies = [
+    {
+        homeUser: "sample-website",
+        repository: "sample-website-deploy",
+        branch: "release",
+        type:"website",
+        dnsNames: ["sample.website.at"],
+        updateCode: [
+            "sudo -u sample-website -H sh -c 'cd /home/sample-website/sample-website-deploy; git pull origin release'"
+        ]
+    },
+    ...
+]
+baseConfig.thingies = baseConfig.thingies.concat(allMachineThingies)
+module.exports = baseConfig;
+```
+
+Every thingy is defined as:
+```javascript
+{
+    homeUser: "user-to-be-sandboxed-in",
+    repository: "repository-to-clone-and-pull",
+    branch: "branch-to-react-on-push",
+    type:"thingy-type",
+    updateCode: [
+        "line of code which becomes executed by the update script",
+        "another line of code",
+        ...
+    ]
+}
+```
+
+Important to say is that we donot have yet a way to use foreign repositories.
+
+So we may exclusively use repositories our user owns on github.
+This is to be improved. Everything is pretty much work in progress :-)...
+
+Actuallly the only reasonable thingy types for the moment are `service`, `website` and `installer`.
+
+The `installer` has it's own special treatment and resides in the root users' home directory. It exclusively pulls itself and runs the `installer.js` with `update` argument on any update.
+
+The `service` has it's own service files as it effecticly is a systemd service. The approprate service files are generated by the cli thingy [generate-service-files-for-thingies](https://www.npmjs.com/package/generate-service-files-for-thingies). This is already done in the machine thingy tools.
+
+Also the service is accessible over the web and we expect nginx to handle all the incoming requests. So we also have a cli thingy [generate-nginx-config-for-thingies](https://www.npmjs.com/package/generate-nginx-config-for-thingies) which does exactly that and also is used by our machine thingy tools.
+
+The `website` thingies also require that nginx configuration. They simply clone and pull their contents into their users' home directory which is being linked to, so that nginx may serve those website files staticly.
+
+Also important to notice is that we also use the the cli thingy [prepare-machine-thingy-deployment](https://www.npmjs.com/package/prepare-machine-thingy-deployment) to add deployment keys to our github repositories.
+
+Look into the [toolset](https://github.com/JhonnyJason/toolset) to have an idea of the current capabilities.

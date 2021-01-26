@@ -1,42 +1,39 @@
 
 var config = {};
 
-
-var webhookPort = 5555
+var webhookPort = 55555
+var serverName = "servername.domain.tld"
 
 // identifying name
-config.name = "sample-machine"
+config.name = "servername"
 
 // webhook relevant config
-config.ipAddress = "111.111.111.111" // IPv4 Address of the machine
+config.serverName = serverName
 config.uri = "/webhook"
-config.webhookSecret = "sluttysecret" //useless secret because we use http^^
+config.webhookSecret = "sluttysecretofservername"
 config.webhookPort = webhookPort
 
 //most basic thingies
 config.thingies = [
     {
-        homeUser: "root",
-        repository: "sample-machine-output",
-        branch: "release",
-        newProp: false,
         type:"installer",
-        updateCode: [
-            "cd /root/sample-machine-output; git pull origin release; node installer.js update;"
-        ]
-    }
-    ,
-    {
-        homeUser: "webhook-handler",
-        repository: "webhook-handler-deploy",
+
+        repository: "servername-output",
         branch: "release",
+
+        homeUser: "root"
+    },
+    {
         type:"service",
         socket: true,
         oneshot: true,
+        dnsNames: [ serverName ],
         outsidePort: webhookPort,
-        updateCode: [
-            "sudo -u webhook-handler -H sh -c 'cd /home/webhook-handler/webhook-handler-deploy; git pull origin release'"
-        ]
+
+        repository: "webhook-handler-deploy",
+        branch: "release",
+
+        homeUser: "webhook-handler"
     }
 ]
 
